@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji 圖案規律排列大挑戰！</title>
+    <style>
+        body {
+            font-family: 'PingFang HK', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f9ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 750px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #1e3a8a;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .score-board {
+            font-size: 18px;
+            color: #4b5563;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+
+        /* 題目顯示區域 */
+        .question-zone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background-color: #f8fafc;
+            padding: 25px 15px;
+            border-radius: 15px;
+            border: 3px dashed #cbd5e1;
+            margin-bottom: 30px;
+            min-height: 80px;
+            flex-wrap: wrap;
+        }
+
+        .emoji-item {
+            font-size: 42px;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .blank-box {
+            border: 3px dashed #ef4444;
+            background-color: #fef2f2;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .blank-box.active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+        }
+
+        /* 答案選擇按鈕區域 */
+        .options-zone {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .option-btn {
+            font-size: 40px;
+            width: 70px;
+            height: 70px;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.1s, background-color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .option-btn:hover {
+            background-color: #f1f5f9;
+            transform: scale(1.05);
+        }
+
+        .option-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 提示與下一題按鈕 */
+        .message {
+            font-size: 22px;
+            font-weight: bold;
+            height: 35px;
+            margin-bottom: 20px;
+        }
+
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+
+        .next-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+            transition: background-color 0.2s;
+            display: none;
+        }
+
+        .next-btn:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Emoji 規律排列大挑戰！</h1>
+    <div class="score-board">得分：<span id="score">0</span></div>
+
+    <div class="question-zone" id="questionZone"></div>
+
+    <div class="message" id="message">請點選紅色框框，然後選一個 Emoji 放進去！</div>
+
+    <div class="options-zone" id="optionsZone"></div>
+
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">下一題 🎉</button>
+</div>
+
+<script>
+    // 遊戲使用的 Emoji 庫
+    const emojiPools = [
+        ['🍎', '🍌', '🍉', '🍇', '🍓', '🍍'],
+        ['🐶', '🐱', '🐰', '🦁', '🐸', '🦊'],
+        ['🚗', '✈️', '🚢', '🚂', '🚲', '🚀'],
+        ['⚽', '🏀', '🎾', '🏐', '🏓', '🛹'],
+        ['🍔', '🍟', '🍕', '🍩', '🍦', '🍣'],
+        ['🎈', '🎁', '👑', '🎨', '🎸', '🔮']
+    ];
+
+    let currentPattern = [];
+    let displayedPattern = [];
+    let blanksInfo = [];
+    let selectedBlankIdx = null;
+    let score = 0;
+
+    // 初始化遊戲
+    function initGame() {
+        const questionZone = document.getElementById('questionZone');
+        const optionsZone = document.getElementById('optionsZone');
+        const message = document.getElementById('message');
+        const nextBtn = document.getElementById('nextBtn');
+
+        questionZone.innerHTML = '';
+        optionsZone.innerHTML = '';
+        message.textContent = '請點選紅框，再選下方的 Emoji 填空！';
+        message.className = 'message';
+        nextBtn.style.display = 'none';
+
+        // 隨機選一組 Emoji 主題
+        const pool = emojiPools[Math.floor(Math.random() * emojiPools.length)];
+        const shuffled = [...pool].sort(() => 0.5 - Math.random());
+        
+        // 規律類型：ABAB(2格一組) / ABCABC(3格一組)
+        const patternType = Math.random() > 0.5 ? 2 : 3;
+        const unit = shuffled.slice(0, patternType);
+
+        // ✅ 總長度拉長為9格，規律完整重複3輪
+        const totalLength = 9;
+        currentPattern = [];
+        for (let i = 0; i < totalLength; i++) {
+            currentPattern.push(unit[i % unit.length]);
+        }
+
+        // 挖空數量：2~3格，長題目可以挖更多空格
+        const numBlanks = Math.random() > 0.4 ? 3 : 2;
+        const blankIndices = [];
+        while (blankIndices.length < numBlanks) {
+            const r = Math.floor(Math.random() * totalLength);
+            if (!blankIndices.includes(r)) {
+                blankIndices.push(r);
+            }
+        }
+
+        displayedPattern = [...currentPattern];
+        blanksInfo = [];
+
+        // 繪製格子
+        for (let i = 0; i < totalLength; i++) {
+            const item = document.createElement('div');
+            item.classList.add('emoji-item');
+
+            if (blankIndices.includes(i)) {
+                item.classList.add('blank-box');
+                item.dataset.index = i;
+                item.id = `blank-${i}`;
+                blanksInfo.push({
+                    index: i,
+                    correctAnswer: currentPattern[i],
+                    currentAnswer: null
+                });
+                item.onclick = () => selectBlank(i);
+            } else {
+                item.textContent = currentPattern[i];
+            }
+            questionZone.appendChild(item);
+        }
+
+        // 預設選取第一格空格
+        selectBlank(blanksInfo[0].index);
+
+        // 產生4個選項
+        const correctAnswers = blanksInfo.map(b => b.correctAnswer);
+        let options = [...new Set([...correctAnswers])];
+        
+        for (let e of pool) {
+            if (options.length >= 4) break;
+            if (!options.includes(e)) options.push(e);
+        }
+        options.sort(() => 0.5 - Math.random());
+
+        options.forEach(emoji => {
+            const btn = document.createElement('button');
+            btn.classList.add('option-btn');
+            btn.textContent = emoji;
+            btn.onclick = () => fillEmoji(emoji);
+            optionsZone.appendChild(btn);
+        });
+    }
+
+    // 選取填空格子
+    function selectBlank(idx) {
+        document.querySelectorAll('.blank-box').forEach(el => el.classList.remove('active'));
+        
+        selectedBlankIdx = idx;
+        const activeBlank = document.getElementById(`blank-${idx}`);
+        if (activeBlank) activeBlank.classList.add('active');
+    }
+
+    // 填入表情符號
+    function fillEmoji(emoji) {
+        if (selectedBlankIdx === null) return;
+
+        const currentBlankEl = document.getElementById(`blank-${selectedBlankIdx}`);
+        currentBlankEl.textContent = emoji;
+        currentBlankEl.style.borderStyle = 'solid';
+        currentBlankEl.style.borderColor = '#3b82f6';
+
+        const blankData = blanksInfo.find(b => b.index === selectedBlankIdx);
+        if (blankData) blankData.currentAnswer = emoji;
+
+        // 自動跳到下一個未填寫空格
+        const unfilled = blanksInfo.find(b => b.currentAnswer === null);
+        if (unfilled) {
+            selectBlank(unfilled.index);
+        } else {
+            checkAnswers();
+        }
+    }
+
+    // 批改答案
+    function checkAnswers() {
+        const isAllCorrect = blanksInfo.every(b => b.currentAnswer === b.correctAnswer);
+        const message = document.getElementById('message');
+        const nextBtn = document.getElementById('nextBtn');
+
+        if (isAllCorrect) {
+            message.textContent = '太棒了！你答對了！ 👑✨';
+            message.className = 'message success';
+            score += 10;
+            document.getElementById('score').textContent = score;
+            
+            document.querySelectorAll('.blank-box').forEach(el => {
+                el.classList.remove('active');
+                el.style.borderColor = '#10b981';
+                el.style.backgroundColor = '#ecfdf5';
+            });
+            
+            nextBtn.style.display = 'inline-block';
+            selectedBlankIdx = null;
+        } else {
+            message.textContent = '好像有地方不對哦，再試試看！ 🤔';
+            message.className = 'message error';
+            
+            blanksInfo.forEach(b => {
+                const el = document.getElementById(`blank-${b.index}`);
+                if (b.currentAnswer !== b.correctAnswer) {
+                    el.style.borderColor = '#ef4444';
+                    el.style.backgroundColor = '#fef2f2';
+                }
+            });
+        }
+    }
+
+    // 下一題
+    function nextQuestion() {
+        initGame();
+    }
+
+    window.onload = initGame;
+</script>
+</body>
+</html>
